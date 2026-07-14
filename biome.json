@@ -1,0 +1,26 @@
+{
+	"$schema": "https://biomejs.dev/schemas/1.9.4/schema.json",
+	"files": {
+		"include": ["src/**/*.ts", "tests/**/*.ts", "scripts/**/*.mjs"],
+		"ignore": ["c8ctl-plugin.js", "node_modules", "dist"]
+	},
+	"formatter": {
+		"enabled": true,
+		"indentStyle": "tab",
+		"lineWidth": 100
+	},
+	"linter": {
+		"enabled": true,
+		"rules": {
+			"recommended": true,
+			"suspicious": {
+				"noExplicitAny": "error"
+			}
+		}
+	},
+	"javascript": {
+		"formatter": {
+			"quoteStyle": "double"
+		}
+	}
+}

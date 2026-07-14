@@ -1,0 +1,13 @@
+c8ctl-plugin-ops
+Copyright 2026 Josh Wulf
+
+This product is licensed under the Apache License, Version 2.0 (the "License").
+You may obtain a copy of the License in the LICENSE file or at
+http://www.apache.org/licenses/LICENSE-2.0
+
+This plugin is an independent, clean-room reimplementation of the operational
+("ops") workflow concepts popularised by c8volt (https://github.com/grafvonb/c8volt),
+which is licensed under GPL-3.0-or-later. No c8volt source code was copied; this
+is an original TypeScript implementation for the c8ctl plugin system. The command
+surface and behaviour are functional descriptions and are not covered by c8volt's
+source copyright.

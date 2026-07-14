@@ -1,0 +1,43 @@
+{
+  "name": "c8ctl-plugin-ops",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Operator-grade c8ctl plugin: high-level ops playbooks (smoke-test, retention, purge, repair) that discover, freeze, plan, preview, execute, verify, and report.",
+  "keywords": [
+    "c8ctl",
+    "c8ctl-plugin",
+    "camunda",
+    "camunda8",
+    "operations",
+    "ops",
+    "incident",
+    "purge",
+    "retention",
+    "smoke-test"
+  ],
+  "license": "Apache-2.0",
+  "author": "Josh Wulf",
+  "main": "c8ctl-plugin.js",
+  "files": [
+    "c8ctl-plugin.js",
+    "README.md",
+    "LICENSE",
+    "NOTICE"
+  ],
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "prepare": "node scripts/build.mjs",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "lint": "biome check",
+    "lint:fix": "biome check --fix",
+    "test:unit": "node --test tests/unit/*.test.ts",
+    "test": "npm run typecheck && npm run lint && npm run build && npm run test:unit"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.4",
+    "@camunda8/orchestration-cluster-api": "^10.0.0-alpha.13",
+    "@types/node": "^22.20.1",
+    "esbuild": "^0.24.0",
+    "typescript": "^5.6.3"
+  }
+}
