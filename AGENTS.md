@@ -18,6 +18,7 @@ src/
     context.ts        OpsContext + OpsFlags: api, dry-run/json/verbose, confirm(), emit(), workerCount().
     discovery.ts      discoverAll / discoverWhere — paged discovery with scope tracking.
     family.ts         Family (root + descendants) resolution and delete planning/execution.
+    walk.ts           Read-only parent/child/family traversal for the `ops walk` command.
     purge.ts          Shared delete step + non-final blocking used by the purge/retention playbooks.
     repair.ts         Shared incident-repair workflow used by both repair playbooks.
     pool.ts           determineWorkers + runPool (bounded concurrency, optional fail-fast).

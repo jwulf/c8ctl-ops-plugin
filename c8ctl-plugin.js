@@ -1786,6 +1786,273 @@ function confirmationPrompt6(count, cleanup) {
   return `smoke test: deploy fixture, start ${count} process instance(s), walk process-instance families, ${clause}. Do you want to proceed?`;
 }
 
+// src/engine/walk.ts
+var MAX_DEPTH2 = 1e3;
+var MISSING_ANCESTOR_WARNING = "one or more parent process instances were not found";
+async function ancestryPath(api, seedKey) {
+  const chain = /* @__PURE__ */ new Map();
+  const keys = [];
+  let currentKey = seedKey;
+  let current = await api.getProcessInstance(currentKey);
+  if (!current) {
+    return {
+      chain,
+      keys,
+      rootKey: seedKey,
+      seedFound: false,
+      orphaned: true,
+      missingAncestor: seedKey
+    };
+  }
+  for (let depth = 0; depth < MAX_DEPTH2; depth++) {
+    chain.set(currentKey, current);
+    keys.push(currentKey);
+    const parentKey = current.parentProcessInstanceKey;
+    if (!parentKey) {
+      return { chain, keys, rootKey: currentKey, seedFound: true, orphaned: false };
+    }
+    const parent = await api.getProcessInstance(parentKey);
+    if (!parent) {
+      return {
+        chain,
+        keys,
+        rootKey: currentKey,
+        seedFound: true,
+        orphaned: true,
+        missingAncestor: parentKey
+      };
+    }
+    currentKey = parentKey;
+    current = parent;
+  }
+  return { chain, keys, rootKey: currentKey, seedFound: true, orphaned: false };
+}
+async function descendantTree(api, rootKey) {
+  const chain = /* @__PURE__ */ new Map();
+  const edges = /* @__PURE__ */ new Map();
+  const keys = [];
+  const root = await api.getProcessInstance(rootKey);
+  chain.set(rootKey, root ?? { processInstanceKey: rootKey });
+  keys.push(rootKey);
+  const seen = /* @__PURE__ */ new Set([rootKey]);
+  const queue = [rootKey];
+  while (queue.length > 0) {
+    const key = queue.shift();
+    if (key === void 0) break;
+    const children = await api.childrenOf(key);
+    const childKeys = [];
+    for (const child of children) {
+      if (seen.has(child.processInstanceKey)) continue;
+      seen.add(child.processInstanceKey);
+      chain.set(child.processInstanceKey, child);
+      keys.push(child.processInstanceKey);
+      childKeys.push(child.processInstanceKey);
+      queue.push(child.processInstanceKey);
+    }
+    if (childKeys.length > 0) edges.set(key, childKeys);
+  }
+  return { chain, edges, keys, rootFound: root !== void 0 };
+}
+async function walk(api, seedKey, mode) {
+  if (mode === "parent") {
+    const a2 = await ancestryPath(api, seedKey);
+    return {
+      mode,
+      seedKey,
+      rootKey: a2.rootKey,
+      keys: a2.keys,
+      chain: a2.chain,
+      edges: /* @__PURE__ */ new Map(),
+      seedFound: a2.seedFound,
+      orphaned: a2.orphaned,
+      missingAncestor: a2.missingAncestor,
+      warning: a2.missingAncestor ? MISSING_ANCESTOR_WARNING : void 0
+    };
+  }
+  if (mode === "children") {
+    const d2 = await descendantTree(api, seedKey);
+    return {
+      mode,
+      seedKey,
+      rootKey: seedKey,
+      keys: d2.keys,
+      chain: d2.chain,
+      edges: d2.edges,
+      seedFound: d2.rootFound,
+      orphaned: false,
+      missingAncestor: d2.rootFound ? void 0 : seedKey,
+      warning: d2.rootFound ? void 0 : MISSING_ANCESTOR_WARNING
+    };
+  }
+  const a = await ancestryPath(api, seedKey);
+  const d = await descendantTree(api, a.rootKey);
+  return {
+    mode,
+    seedKey,
+    rootKey: a.rootKey,
+    keys: d.keys,
+    chain: d.chain,
+    edges: d.edges,
+    seedFound: a.seedFound,
+    orphaned: a.orphaned,
+    missingAncestor: a.missingAncestor,
+    warning: a.missingAncestor ? MISSING_ANCESTOR_WARNING : void 0
+  };
+}
+
+// src/playbooks/walk-process-instance.ts
+var SCHEMA6 = "ops.walk.v1";
+var COMMAND8 = "ops walk process-instance";
+async function run8(ctx) {
+  const startedAt = Date.now();
+  const report = baseReport(ctx, { schemaVersion: SCHEMA6, command: COMMAND8, startedAt });
+  const lines = [];
+  const emit = (outcome) => ctx.emit(finalize(report, outcome, startedAt), () => lines);
+  const seeds = resolveSeeds(ctx);
+  if (seeds.length === 0) {
+    const message = "walk process-instance requires at least one --key (process-instance key)";
+    report.errors.push(message);
+    lines.push(message);
+    await emit("failed");
+    return;
+  }
+  const mode = resolveMode(ctx);
+  const flat = ctx.flags.raw.flat === true;
+  const withIncidents = ctx.flags.raw.withIncidents === true;
+  report.mode = mode;
+  report.render = flat ? "flat" : "tree";
+  report.seeds = seeds;
+  const renders = [];
+  const walkSummaries = [];
+  let sawWarning = false;
+  for (const seedKey of seeds) {
+    const result = await walk(ctx.api, seedKey, mode);
+    const incidents = withIncidents ? await collectIncidents2(ctx, result) : /* @__PURE__ */ new Map();
+    renders.push({ result, incidents });
+    if (result.warning) {
+      sawWarning = true;
+      report.notices.push(`${seedKey}: ${result.warning}`);
+    }
+    walkSummaries.push({
+      seedKey,
+      mode,
+      rootKey: result.rootKey,
+      seedFound: result.seedFound,
+      orphaned: result.orphaned,
+      ...result.missingAncestor ? { missingAncestor: result.missingAncestor } : {},
+      instanceCount: result.keys.length,
+      incidentCount: countIncidents(incidents),
+      processInstanceKeys: result.keys
+    });
+  }
+  report.walks = walkSummaries;
+  for (const { result, incidents } of renders) {
+    if (renders.length > 1) lines.push(`# ${result.seedKey} (${result.mode})`);
+    renderResult(lines, result, incidents, flat);
+    if (result.warning) lines.push(`warning: ${result.warning}`);
+    if (renders.length > 1) lines.push("");
+  }
+  await emit(sawWarning ? "partial" : "executed");
+}
+function resolveSeeds(ctx) {
+  const keys = keyList(ctx.flags.raw.key);
+  const piKey = str(ctx.flags.raw.piKey);
+  if (piKey && !keys.includes(piKey)) keys.push(piKey);
+  return keys;
+}
+function resolveMode(ctx) {
+  if (ctx.flags.raw.parent === true) return "parent";
+  if (ctx.flags.raw.children === true) return "children";
+  return "family";
+}
+async function collectIncidents2(ctx, result) {
+  const byKey = /* @__PURE__ */ new Map();
+  for (const key of result.keys) {
+    const pi = result.chain.get(key);
+    if (pi && pi.hasIncident === false) continue;
+    const incidents = await ctx.api.incidentsForProcessInstance(key, "ACTIVE");
+    if (incidents.length > 0) byKey.set(key, incidents);
+  }
+  return byKey;
+}
+function countIncidents(byKey) {
+  let total = 0;
+  for (const list of byKey.values()) total += list.length;
+  return total;
+}
+function renderResult(lines, result, incidents, flat) {
+  if (result.keys.length === 0) return;
+  if (result.mode === "parent") {
+    renderChain(lines, result, incidents);
+    return;
+  }
+  if (flat) {
+    renderFlat(lines, result, incidents);
+    return;
+  }
+  renderTree(lines, result, incidents);
+}
+function renderChain(lines, result, incidents) {
+  const ordered = [...result.keys].reverse();
+  ordered.forEach((key, index) => {
+    const prefix = index === 0 ? "" : "\u2191 ";
+    lines.push(prefix + oneLine(result, key));
+    pushIncidentLines(lines, incidents.get(key), index === 0 ? "  " : "  ");
+  });
+}
+function renderFlat(lines, result, incidents) {
+  for (const key of result.keys) {
+    lines.push(oneLine(result, key));
+    pushIncidentLines(lines, incidents.get(key), "  ");
+  }
+}
+function renderTree(lines, result, incidents) {
+  lines.push(oneLine(result, result.rootKey));
+  pushIncidentLines(lines, incidents.get(result.rootKey), "  ");
+  const descend = (parentKey, prefix) => {
+    const children = result.edges.get(parentKey) ?? [];
+    children.forEach((childKey, index) => {
+      const last = index === children.length - 1;
+      lines.push(`${prefix}${last ? "\u2514\u2500 " : "\u251C\u2500 "}${oneLine(result, childKey)}`);
+      pushIncidentLines(lines, incidents.get(childKey), `${prefix}${last ? "   " : "\u2502  "}   `);
+      descend(childKey, `${prefix}${last ? "   " : "\u2502  "}`);
+    });
+  };
+  descend(result.rootKey, "");
+}
+function pushIncidentLines(lines, incidents, indent) {
+  if (!incidents || incidents.length === 0) return;
+  for (const inc of incidents) {
+    const parts = [inc.errorType ?? "INCIDENT"];
+    if (inc.elementId) parts.push(`@${inc.elementId}`);
+    if (inc.errorMessage) parts.push(`\u2014 ${inc.errorMessage}`);
+    lines.push(`${indent}! ${parts.join(" ")}`);
+  }
+}
+function oneLine(result, key) {
+  const pi = result.chain.get(key);
+  if (!pi) return `${key} (not found)`;
+  const parts = [pi.processInstanceKey];
+  if (pi.state) parts.push(pi.state);
+  if (pi.processDefinitionId) {
+    parts.push(
+      pi.processDefinitionVersion ? `${pi.processDefinitionId} v${pi.processDefinitionVersion}` : pi.processDefinitionId
+    );
+  }
+  if (pi.hasIncident) parts.push("\u26A0");
+  const markers = [];
+  if (key === result.seedKey && result.mode === "family" && result.rootKey !== result.seedKey) {
+    markers.push("seed");
+  }
+  if (key === result.missingAncestor && !seedExists(result, key)) markers.push("missing");
+  const suffix = markers.length > 0 ? ` (${markers.join(", ")})` : "";
+  return parts.join("  ") + suffix;
+}
+function seedExists(result, key) {
+  const pi = result.chain.get(key);
+  return pi !== void 0 && pi.state !== void 0;
+}
+
 // src/cli.ts
 var ROUTES = {
   "execute/smoke-test": run7,
@@ -1794,7 +2061,8 @@ var ROUTES = {
   "purge/process-instances-with-incidents": run2,
   "purge/all-process-definitions": run,
   "repair/incident": run4,
-  "repair/process-instance": run5
+  "repair/process-instance": run5,
+  "walk/process-instance": run8
 };
 var ALIASES = {
   "smoke-test": "execute/smoke-test",
@@ -1808,7 +2076,9 @@ var ALIASES = {
   "all-process-definitions": "purge/all-process-definitions",
   definitions: "purge/all-process-definitions",
   "repair-incident": "repair/incident",
-  "repair-process-instance": "repair/process-instance"
+  "repair-process-instance": "repair/process-instance",
+  walk: "walk/process-instance",
+  "walk-process-instance": "walk/process-instance"
 };
 function listRoutes() {
   return Object.keys(ROUTES);
@@ -1824,11 +2094,11 @@ function resolvePlaybook(args) {
     return { key: aliasKey, run: aliasRun };
   }
   const key = resource ? `${verb}/${resource}` : "";
-  const run8 = ROUTES[key];
-  if (!run8) {
+  const run9 = ROUTES[key];
+  if (!run9) {
     throw usageError(verb, resource);
   }
-  return { key, run: run8 };
+  return { key, run: run9 };
 }
 function usageError(verb, resource) {
   const attempted = [verb, resource].filter(Boolean).join(" ");
@@ -1880,14 +2150,18 @@ function coerceFlags(flags2 = {}) {
       jobTimeoutMs: intOrUndefined(flags2["job-timeout-ms"]),
       vars: str(flags2.vars),
       count: intOrUndefined(flags2.count),
-      noCleanup: bool(flags2["no-cleanup"])
+      noCleanup: bool(flags2["no-cleanup"]),
+      parent: bool(flags2.parent),
+      children: bool(flags2.children),
+      flat: bool(flags2.flat),
+      withIncidents: bool(flags2["with-incidents"])
     }
   };
 }
 async function dispatch(args, flags2) {
-  const { run: run8 } = resolvePlaybook(args);
+  const { run: run9 } = resolvePlaybook(args);
   const ctx = new OpsContext(coerceFlags(flags2));
-  await run8(ctx);
+  await run9(ctx);
 }
 
 // src/index.ts
@@ -1965,6 +2239,23 @@ var flags = {
   "no-cleanup": {
     type: "boolean",
     description: "smoke-test: retain deployed/created resources instead of deleting them"
+  },
+  // Walk (read-only relationship inspection)
+  parent: {
+    type: "boolean",
+    description: "walk: show the ancestry chain from the key up to its root"
+  },
+  children: {
+    type: "boolean",
+    description: "walk: show the key and all of its descendants"
+  },
+  flat: {
+    type: "boolean",
+    description: "walk: render the family as a flat list instead of an ASCII tree"
+  },
+  "with-incidents": {
+    type: "boolean",
+    description: "walk: annotate rows with their active incidents"
   }
 };
 async function handler(args, commandFlags) {
@@ -1987,7 +2278,7 @@ var metadata = {
   name: "c8ctl-ops-plugin",
   commands: {
     ops: {
-      description: "High-level Camunda 8 operations playbooks (smoke-test, retention, purge, repair)",
+      description: "High-level Camunda 8 operations playbooks (smoke-test, retention, purge, repair, walk)",
       examples: [
         {
           command: "c8ctl ops execute smoke-test --dry-run",
@@ -2020,6 +2311,18 @@ var metadata = {
         {
           command: `c8ctl ops repair process-instance --key 2251799813685249 --vars '{"ok":true}'`,
           description: "Set variables then resolve incidents for a process instance"
+        },
+        {
+          command: "c8ctl ops walk process-instance --key 2251799813685249",
+          description: "Show the full process-instance family as an ASCII tree"
+        },
+        {
+          command: "c8ctl ops walk process-instance --key 2251799813685249 --parent",
+          description: "Show the ancestry chain from a key up to its root"
+        },
+        {
+          command: "c8ctl ops walk process-instance --key 2251799813685249 --children --with-incidents",
+          description: "List descendants of a key, annotated with active incidents"
         }
       ]
     }

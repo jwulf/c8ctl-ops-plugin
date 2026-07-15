@@ -92,6 +92,23 @@ const flags: Record<string, FlagDef> = {
 		type: "boolean",
 		description: "smoke-test: retain deployed/created resources instead of deleting them",
 	},
+	// Walk (read-only relationship inspection)
+	parent: {
+		type: "boolean",
+		description: "walk: show the ancestry chain from the key up to its root",
+	},
+	children: {
+		type: "boolean",
+		description: "walk: show the key and all of its descendants",
+	},
+	flat: {
+		type: "boolean",
+		description: "walk: render the family as a flat list instead of an ASCII tree",
+	},
+	"with-incidents": {
+		type: "boolean",
+		description: "walk: annotate rows with their active incidents",
+	},
 };
 
 async function handler(args: string[], commandFlags?: Record<string, unknown>): Promise<void> {
@@ -117,7 +134,7 @@ export const metadata = {
 	commands: {
 		ops: {
 			description:
-				"High-level Camunda 8 operations playbooks (smoke-test, retention, purge, repair)",
+				"High-level Camunda 8 operations playbooks (smoke-test, retention, purge, repair, walk)",
 			examples: [
 				{
 					command: "c8ctl ops execute smoke-test --dry-run",
@@ -151,6 +168,19 @@ export const metadata = {
 					command:
 						"c8ctl ops repair process-instance --key 2251799813685249 --vars '{\"ok\":true}'",
 					description: "Set variables then resolve incidents for a process instance",
+				},
+				{
+					command: "c8ctl ops walk process-instance --key 2251799813685249",
+					description: "Show the full process-instance family as an ASCII tree",
+				},
+				{
+					command: "c8ctl ops walk process-instance --key 2251799813685249 --parent",
+					description: "Show the ancestry chain from a key up to its root",
+				},
+				{
+					command:
+						"c8ctl ops walk process-instance --key 2251799813685249 --children --with-incidents",
+					description: "List descendants of a key, annotated with active incidents",
 				},
 			],
 		},

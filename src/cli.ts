@@ -16,6 +16,7 @@ import { run as repairIncident } from "./playbooks/repair-incident.ts";
 import { run as repairProcessInstance } from "./playbooks/repair-process-instance.ts";
 import { run as retentionPolicy } from "./playbooks/retention-policy.ts";
 import { run as smokeTest } from "./playbooks/smoke-test.ts";
+import { run as walkProcessInstance } from "./playbooks/walk-process-instance.ts";
 
 type Playbook = (ctx: OpsContext) => Promise<void>;
 
@@ -28,6 +29,7 @@ const ROUTES: Record<string, Playbook> = {
 	"purge/all-process-definitions": purgeDefinitions,
 	"repair/incident": repairIncident,
 	"repair/process-instance": repairProcessInstance,
+	"walk/process-instance": walkProcessInstance,
 };
 
 const ALIASES: Record<string, string> = {
@@ -43,6 +45,8 @@ const ALIASES: Record<string, string> = {
 	definitions: "purge/all-process-definitions",
 	"repair-incident": "repair/incident",
 	"repair-process-instance": "repair/process-instance",
+	walk: "walk/process-instance",
+	"walk-process-instance": "walk/process-instance",
 };
 
 export function listRoutes(): string[] {
@@ -124,6 +128,10 @@ export function coerceFlags(flags: Record<string, unknown> = {}): OpsFlags {
 			vars: str(flags.vars),
 			count: intOrUndefined(flags.count),
 			noCleanup: bool(flags["no-cleanup"]),
+			parent: bool(flags.parent),
+			children: bool(flags.children),
+			flat: bool(flags.flat),
+			withIncidents: bool(flags["with-incidents"]),
 		},
 	};
 }

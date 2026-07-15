@@ -5,6 +5,7 @@ import { discoverAll, discoverWhere } from "../../src/engine/discovery.ts";
 import { planFamilyDelete } from "../../src/engine/family.ts";
 import { determineWorkers, runPool } from "../../src/engine/pool.ts";
 import { keyList, num, parseJsonObject, str, unique } from "../../src/engine/util.ts";
+import { walk } from "../../src/engine/walk.ts";
 
 test("util: keyList splits and trims", () => {
 	assert.deepEqual(keyList("a, b ,,c"), ["a", "b", "c"]);
@@ -138,4 +139,58 @@ test("family: non-final root is skipped unless included", async () => {
 	});
 	assert.deepEqual(included.resolvedRootKeys, ["root"]);
 	assert.equal(included.requiresCancelBeforeDelete, true);
+});
+
+const familyApi = () =>
+	fakeApi({
+		root: { processInstanceKey: "root", state: "ACTIVE", processDefinitionId: "p" },
+		child: { processInstanceKey: "child", parentProcessInstanceKey: "root", state: "ACTIVE" },
+		grand: { processInstanceKey: "grand", parentProcessInstanceKey: "child", state: "ACTIVE" },
+		sibling: { processInstanceKey: "sibling", parentProcessInstanceKey: "root", state: "ACTIVE" },
+	});
+
+test("walk: family expands from the resolved root", async () => {
+	const result = await walk(familyApi(), "grand", "family");
+	assert.equal(result.mode, "family");
+	assert.equal(result.rootKey, "root");
+	assert.equal(result.seedKey, "grand");
+	assert.deepEqual(new Set(result.keys), new Set(["root", "child", "grand", "sibling"]));
+	assert.deepEqual(result.edges.get("root"), ["child", "sibling"]);
+	assert.deepEqual(result.edges.get("child"), ["grand"]);
+	assert.equal(result.warning, undefined);
+});
+
+test("walk: parent returns the ancestry chain seed-first", async () => {
+	const result = await walk(familyApi(), "grand", "parent");
+	assert.equal(result.mode, "parent");
+	assert.deepEqual(result.keys, ["grand", "child", "root"]);
+	assert.equal(result.rootKey, "root");
+	assert.equal(result.edges.size, 0);
+});
+
+test("walk: children expands only the subtree beneath the seed", async () => {
+	const result = await walk(familyApi(), "child", "children");
+	assert.equal(result.rootKey, "child");
+	assert.deepEqual(new Set(result.keys), new Set(["child", "grand"]));
+	assert.equal(result.keys.includes("sibling"), false);
+	assert.equal(result.keys.includes("root"), false);
+});
+
+test("walk: missing ancestor yields a partial tree plus warning", async () => {
+	const api = fakeApi({
+		orphan: { processInstanceKey: "orphan", parentProcessInstanceKey: "gone", state: "ACTIVE" },
+	});
+	const result = await walk(api, "orphan", "family");
+	assert.equal(result.orphaned, true);
+	assert.equal(result.missingAncestor, "gone");
+	assert.ok(result.warning);
+	assert.equal(result.rootKey, "orphan");
+	assert.deepEqual(result.keys, ["orphan"]);
+});
+
+test("walk: unknown seed is reported as not found", async () => {
+	const result = await walk(fakeApi({}), "nope", "family");
+	assert.equal(result.seedFound, false);
+	assert.equal(result.missingAncestor, "nope");
+	assert.ok(result.warning);
 });

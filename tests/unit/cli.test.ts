@@ -50,6 +50,16 @@ test("cli: resolvePlaybook resolves canonical and alias routes", () => {
 		"purge/orphan-process-instances",
 	);
 	assert.equal(resolvePlaybook(["repair", "incident"]).key, "repair/incident");
+	assert.equal(resolvePlaybook(["walk", "process-instance"]).key, "walk/process-instance");
+	assert.equal(resolvePlaybook(["walk"]).key, "walk/process-instance");
+});
+
+test("cli: coerceFlags carries walk toggles", () => {
+	const flags = coerceFlags({ parent: true, "with-incidents": true });
+	assert.equal(flags.raw.parent, true);
+	assert.equal(flags.raw.children, false);
+	assert.equal(flags.raw.flat, false);
+	assert.equal(flags.raw.withIncidents, true);
 });
 
 test("cli: resolvePlaybook throws on unknown command", () => {

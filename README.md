@@ -28,8 +28,9 @@ c8ctl ops --help
 | `ops purge all-process-definitions` | Delete process definitions (and, with `--force`, their running instances). |
 | `ops repair incident` | Resolve incidents, optionally bumping job retries / timeout and setting variables first. |
 | `ops repair process-instance` | Repair all active incidents scoped to selected process instances. |
+| `ops walk process-instance` | **Read-only.** Inspect a process instance's relationships — ancestry (`--parent`), descendants (`--children`), or the whole family tree (default). |
 
-Aliases are accepted for the resource, e.g. `ops purge orphans`, `ops execute retention`, `ops smoke-test`.
+Aliases are accepted for the resource, e.g. `ops purge orphans`, `ops execute retention`, `ops smoke-test`, `ops walk` (defaults to `walk process-instance`).
 
 ## Safety model
 
@@ -56,7 +57,7 @@ Deleting a family that still contains non-final instances is **blocked** unless 
 | `--workers N` / `--no-worker-limit` / `--fail-fast` | Concurrency controls. |
 | `--report-file PATH` / `--report-format markdown\|json` | Write an audit report. |
 
-Playbook-specific selection flags include `--retention-days`, `--state`, `--incident-state`, `--bpmn-process-id`, `--pd-key`, `--pi-key`, `--parent-key`, `--error-type`, `--element-id`, `--latest`, `--key`, `--retries`, `--job-timeout-ms`, `--vars`, `--count`, and `--no-cleanup`. See `c8ctl ops --help` and each example below.
+Playbook-specific selection flags include `--retention-days`, `--state`, `--incident-state`, `--bpmn-process-id`, `--pd-key`, `--pi-key`, `--parent-key`, `--error-type`, `--element-id`, `--latest`, `--key`, `--retries`, `--job-timeout-ms`, `--vars`, `--count`, `--no-cleanup`, and the walk toggles `--parent` / `--children` / `--flat` / `--with-incidents`. See `c8ctl ops --help` and each example below.
 
 ## Examples
 
@@ -79,6 +80,13 @@ c8ctl ops repair incident --error-type IO_MAPPING_ERROR --retries 3
 # Set variables then resolve a process instance's incidents, writing an audit report
 c8ctl ops repair process-instance --key 2251799813685249 \
   --vars '{"approved":true}' --report-file repair.md
+
+# Inspect a process instance's family as an ASCII tree (read-only)
+c8ctl ops walk process-instance --key 2251799813685249
+
+# Show just the ancestry chain up to the root, or the descendants below a key
+c8ctl ops walk process-instance --key 2251799813685249 --parent
+c8ctl ops walk process-instance --key 2251799813685249 --children --with-incidents
 ```
 
 > **Tip:** always start with `--dry-run`. The plan tells you the resolved roots, affected scope, and whether `--force` is required — before anything is deleted.
