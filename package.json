@@ -1,6 +1,6 @@
 {
   "name": "c8ctl-ops-plugin",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "description": "Operator-grade c8ctl plugin: high-level ops playbooks (smoke-test, retention, purge, repair) that discover, freeze, plan, preview, execute, verify, and report.",
   "keywords": [
