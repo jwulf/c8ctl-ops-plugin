@@ -12,7 +12,7 @@ await build({
 	// erased. Keep it external so it is never bundled.
 	external: ["@camunda8/orchestration-cluster-api"],
 	banner: {
-		js: "// c8ctl-plugin-ops — generated bundle. Do not edit; edit src/ and run `npm run build`.",
+		js: "// c8ctl-ops-plugin — generated bundle. Do not edit; edit src/ and run `npm run build`.",
 	},
 	logLevel: "info",
 });

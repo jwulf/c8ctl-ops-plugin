@@ -1,4 +1,4 @@
-# c8ctl-plugin-ops
+# c8ctl-ops-plugin
 
 High-level Camunda 8 **operations playbooks** for [`c8ctl`](https://github.com/camunda/c8ctl) — a clean-room, Apache-2.0 TypeScript reimplementation of the `ops` command group from [c8volt](https://github.com/grafvonb/c8volt).
 
@@ -7,7 +7,7 @@ Where `c8ctl` core gives you low-level, single-resource verbs (`list`, `get`, `c
 ## Install
 
 ```bash
-c8ctl load plugin @nanobpm/c8ctl-plugin-ops         # from npm (once published)
+c8ctl load plugin c8ctl-ops-plugin                          # from npm (once published)
 c8ctl load plugin --from file:///path/to/c8ctl-ops-plugin   # from a local checkout
 ```
 

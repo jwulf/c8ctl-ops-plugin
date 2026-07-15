@@ -1,5 +1,5 @@
 {
-  "name": "c8ctl-plugin-ops",
+  "name": "c8ctl-ops-plugin",
   "version": "0.1.0",
   "type": "module",
   "description": "Operator-grade c8ctl plugin: high-level ops playbooks (smoke-test, retention, purge, repair) that discover, freeze, plan, preview, execute, verify, and report.",
@@ -17,6 +17,18 @@
   ],
   "license": "Apache-2.0",
   "author": "Josh Wulf",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jwulf/c8ctl-ops-plugin.git"
+  },
+  "bugs": {
+    "url": "https://github.com/jwulf/c8ctl-ops-plugin/issues"
+  },
+  "homepage": "https://github.com/jwulf/c8ctl-ops-plugin#readme",
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
   "main": "c8ctl-plugin.js",
   "files": [
     "c8ctl-plugin.js",
@@ -31,6 +43,7 @@
     "lint": "biome check",
     "lint:fix": "biome check --fix",
     "test:unit": "node --test tests/unit/*.test.ts",
+    "validate": "npm run typecheck && npm run lint && npm run test:unit",
     "test": "npm run typecheck && npm run lint && npm run build && npm run test:unit"
   },
   "devDependencies": {

@@ -1,0 +1,35 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          registry-url: https://registry.npmjs.org
+      # npm >= 11.5.1 is required for provenance; node 22 ships npm 10.x.
+      - run: npm install --global npm@latest
+      - run: npm ci
+      - run: npm run validate
+      - run: npm run build
+      # Publishes only when package.json's version isn't on npm yet (idempotent).
+      # Auth uses the NPM_TOKEN secret (needed for the first publish, before a
+      # Trusted Publisher can be configured). Provenance is still signed via the
+      # workflow's OIDC id-token. Once the package exists, this can be switched
+      # to pure OIDC Trusted Publishing by dropping NODE_AUTH_TOKEN.
+      - run: node scripts/publish.mjs
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

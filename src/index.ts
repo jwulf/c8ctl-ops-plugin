@@ -113,7 +113,7 @@ export const commands = {
 };
 
 export const metadata = {
-	name: "c8ctl-plugin-ops",
+	name: "c8ctl-ops-plugin",
 	commands: {
 		ops: {
 			description:

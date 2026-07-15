@@ -1,4 +1,4 @@
-// c8ctl-plugin-ops — generated bundle. Do not edit; edit src/ and run `npm run build`.
+// c8ctl-ops-plugin — generated bundle. Do not edit; edit src/ and run `npm run build`.
 
 // src/engine/context.ts
 import { writeFile } from "node:fs/promises";
@@ -1984,7 +1984,7 @@ var commands = {
   ops: { flags, handler }
 };
 var metadata = {
-  name: "c8ctl-plugin-ops",
+  name: "c8ctl-ops-plugin",
   commands: {
     ops: {
       description: "High-level Camunda 8 operations playbooks (smoke-test, retention, purge, repair)",

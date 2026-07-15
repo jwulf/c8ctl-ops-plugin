@@ -1,4 +1,4 @@
-# AGENTS.md — c8ctl-plugin-ops
+# AGENTS.md — c8ctl-ops-plugin
 
 Guidance for AI agents and contributors working in this repository.
 
