@@ -26,10 +26,7 @@ jobs:
       - run: npm run validate
       - run: npm run build
       # Publishes only when package.json's version isn't on npm yet (idempotent).
-      # Auth uses the NPM_TOKEN secret (needed for the first publish, before a
-      # Trusted Publisher can be configured). Provenance is still signed via the
-      # workflow's OIDC id-token. Once the package exists, this can be switched
-      # to pure OIDC Trusted Publishing by dropping NODE_AUTH_TOKEN.
+      # Auth is via GitHub Actions OIDC (npm Trusted Publishing) configured for
+      # this package — no long-lived NPM_TOKEN, and provenance is signed
+      # automatically.
       - run: node scripts/publish.mjs
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
